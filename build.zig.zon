@@ -2,11 +2,11 @@
     .name = .cfitsio,
     .version = "4.6.2",
     .fingerprint = 0xb6653d980098a42d,
-    .minimum_zig_version = "0.16.0-dev.1912+0cbaaa5eb",
+    .minimum_zig_version = "0.16.0-dev.2535+b5bd49460",
     .dependencies = .{
         .cfitsio = .{
             .url = "https://github.com/HEASARC/cfitsio/archive/refs/tags/cfitsio-4.6.2.tar.gz",
-            .hash = "122077d6ec1c037659ac18029cf325e9c3790c429a85f533dd12056578dcaf8257df",
+            .hash = "N-V-__8AANZZ2QB31uwcA3ZZrBgCnPMl6cN5DEKahfUz3RIF",
         },
     },
     .paths = .{
