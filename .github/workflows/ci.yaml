@@ -35,3 +35,9 @@ jobs:
 
       - name: Run `fmt`
         run: zig build fmt
+
+      - name: Run `lib`
+        run: zig build lib
+
+      - name: Run `test`
+        run: zig build test

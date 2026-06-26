@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
 
     // Dependencies
     const cfitsio_dep = b.dependency("cfitsio", .{});
-    const cfitsio_path = cfitsio_dep.path("");
+    const cfitsio_path = cfitsio_dep.path(".");
 
     // Library
     const lib_step = b.step("lib", "Install library");
@@ -42,7 +42,6 @@ pub fn build(b: *std.Build) void {
     }
 
     lib.root_module.addCSourceFiles(.{ .root = cfitsio_path, .files = &SOURCES, .flags = flags.items });
-    lib.installHeadersDirectory(cfitsio_path, "", .{ .include_extensions = &HEADERS });
     lib.root_module.linkSystemLibrary("z", .{ .preferred_link_mode = .static });
     lib.root_module.link_libc = true;
 
@@ -50,36 +49,46 @@ pub fn build(b: *std.Build) void {
     lib_step.dependOn(&lib_install.step);
     b.default_step.dependOn(lib_step);
 
+    // C → Zig bindings via translate-c
+    const c_bindings = b.addTranslateC(.{
+        .root_source_file = cfitsio_dep.path("fitsio.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    c_bindings.addIncludePath(cfitsio_dep.path(""));
+    c_bindings.defineCMacro("_REENTRANT", null);
+    if (use_curl) {
+        c_bindings.defineCMacro("CFITSIO_HAVE_CURL", null);
+    }
+    if (use_bz2) {
+        c_bindings.defineCMacro("HAVE_BZIP2", "1");
+    }
+
     // Module
     const module = b.addModule("cfitsio", .{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("src/lib.zig"),
+        .imports = &.{
+            .{ .name = "c", .module = c_bindings.createModule() },
+        },
     });
     module.linkLibrary(lib);
+
+    // Tests (runs tests in src/lib.zig)
+    const test_step = b.step("test", "Run tests");
+
+    const test_exe = b.addTest(.{ .root_module = module });
+    const test_run = b.addRunArtifact(test_exe);
+    test_step.dependOn(&test_run.step);
 
     // Formatting checks
     const fmt_step = b.step("fmt", "Run formatting checks");
 
-    const fmt = b.addFmt(.{
-        .paths = &.{
-            "build.zig",
-        },
-        .check = true,
-    });
+    const fmt = b.addFmt(.{ .paths = b.pathList(&.{"build.zig"}), .check = true });
     fmt_step.dependOn(&fmt.step);
     b.default_step.dependOn(fmt_step);
 }
-
-const HEADERS = .{
-    "fitsio.h",
-    "fitsio2.h",
-    "longnam.h",
-    "drvrsmem.h",
-    "cfortran.h",
-    "f77_wrap.h",
-    "region.h",
-};
 
 const SOURCES = .{
     "buffers.c",
