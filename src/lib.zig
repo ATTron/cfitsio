@@ -1,3 +1,1 @@
-pub const c = @cImport({
-    @cInclude("fitsio.h");
-});
+pub const c = @import("c");

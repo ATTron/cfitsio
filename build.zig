@@ -1,4 +1,5 @@
 const std = @import("std");
+const Translator = @import("translate_c").Translator;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -27,7 +28,7 @@ pub fn build(b: *std.Build) void {
     });
 
     var flags_buffer: [6][]const u8 = undefined;
-    var flags = std.ArrayListUnmanaged([]const u8).initBuffer(&flags_buffer);
+    var flags = std.ArrayList([]const u8).initBuffer(&flags_buffer);
     flags.appendSliceBounded(&FLAGS) catch unreachable;
     if (target.result.cpu.arch.isX86()) {
         flags.appendSliceBounded(&.{ "-msse2", "-mssse3" }) catch unreachable;
@@ -51,20 +52,25 @@ pub fn build(b: *std.Build) void {
     b.default_step.dependOn(lib_step);
 
     // Module
-    const module = b.addModule("cfitsio", .{
+    const translator: Translator = .init(b.dependency("translate_c", .{}), .{
+        .c_source_file = cfitsio_path.path(b, "fitsio.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    translator.linkLibrary(lib);
+
+    _ = b.addModule("cfitsio", .{
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("src/lib.zig"),
+        .imports = &.{.{ .name = "c", .module = translator.mod }},
     });
-    module.linkLibrary(lib);
 
     // Formatting checks
     const fmt_step = b.step("fmt", "Run formatting checks");
 
     const fmt = b.addFmt(.{
-        .paths = &.{
-            "build.zig",
-        },
+        .paths = b.pathList(&.{"build.zig"}),
         .check = true,
     });
     fmt_step.dependOn(&fmt.step);
